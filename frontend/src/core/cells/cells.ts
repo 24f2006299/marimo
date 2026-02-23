@@ -3,7 +3,7 @@
 import { historyField } from "@codemirror/commands";
 import { type Atom, atom, useAtom, useAtomValue } from "jotai";
 import { atomFamily, selectAtom, splitAtom } from "jotai/utils";
-import { isEqual, zip } from "lodash-es";
+import { isEqual } from "lodash-es";
 import { createRef, type ReducerWithoutAction } from "react";
 import type { CellHandle } from "@/components/editor/notebook-cell";
 import {
@@ -796,7 +796,13 @@ const {
   },
   setCellCodes: (
     state,
-    action: { codes: string[]; ids: CellId[]; codeIsStale: boolean },
+    action: {
+      codes: string[];
+      ids: CellId[];
+      codeIsStale: boolean;
+      names?: string[];
+      configs?: CellConfig[];
+    },
   ) => {
     invariant(
       action.codes.length === action.ids.length,
@@ -809,15 +815,21 @@ const {
       cell,
       code,
       cellId,
+      name,
+      config,
     }: {
       cell: CellData | undefined;
       code: string;
       cellId: CellId;
+      name?: string;
+      config?: CellConfig;
     }) => {
       if (!cell) {
         return createCell({
           id: cellId,
           code,
+          name: name,
+          config: config,
           lastCodeRun: action.codeIsStale ? null : code,
           edited: action.codeIsStale && code.trim().length > 0,
         });
@@ -838,6 +850,8 @@ const {
           code: code,
           edited,
           lastCodeRun,
+          ...(name !== undefined && { name }),
+          ...(config !== undefined && { config }),
         };
       }
 
@@ -855,13 +869,19 @@ const {
         code: code,
         edited,
         lastCodeRun,
+        ...(name !== undefined && { name }),
+        ...(config !== undefined && { config }),
       };
     };
 
-    for (const [cellId, code] of zip(action.ids, action.codes)) {
+    for (let i = 0; i < action.ids.length; i++) {
+      const cellId = action.ids[i];
+      const code = action.codes[i];
       if (cellId === undefined || code === undefined) {
         continue;
       }
+      const name = action.names?.[i];
+      const config = action.configs?.[i];
       nextState = {
         ...nextState,
         cellData: {
@@ -870,6 +890,8 @@ const {
             cell: nextState.cellData[cellId],
             code,
             cellId,
+            name,
+            config,
           }),
         },
       };
